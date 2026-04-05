@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Platinum Crest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --emerald: #00ff73;
+            --emerald-glow: rgba(0, 255, 115, 0.4);
+            --bg-dark: #070709;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 3D Stage Setup */
+        .stage {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100dvh;
+            perspective: 1400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .crest-container {
+            position: relative;
+            transform-style: preserve-3d;
+            transform: scale(1) rotateX(6deg) rotateY(0deg);
+            will-change: transform;
+        }
+
+        /* The Emerald Schema Channel */
+        .emerald-beam {
+            position: fixed;
+            top: -50dvh;
+            bottom: -50dvh;
+            left: 50%;
+            width: 2px;
+            background: var(--emerald);
+            transform: translateX(-50%) translateZ(20px);
+            z-index: 100;
+            mix-blend-mode: screen;
+            will-change: transform;
+        }
+
+        /* GPU Accelerated Glow Layer */
+        .emerald-glow-layer {
+            position: fixed;
+            top: -50dvh;
+            bottom: -50dvh;
+            left: 50%;
+            width: 4px;
+            background: transparent;
+            transform: translateX(-50%) translateZ(19px);
+            box-shadow: 
+                0 0 15px var(--emerald),
+                0 0 30px var(--emerald),
+                0 0 60px var(--emerald-glow),
+                0 0 100px var(--emerald-glow);
+            z-index: 99;
+            mix-blend-mode: screen;
+            will-change: transform, opacity;
+            opacity: 0.5;
+        }
+
+        /* Glass Prism Bars */
+        .glass-bar {
+            position: absolute; /* Essential for 3D stacking */
+            height: 14px;
+            width: 220px;
+            background: linear-gradient(
+                90deg, 
+                rgba(255, 255, 255, 0.03) 0%, 
+                rgba(230, 240, 255, 0.15) 50%, 
+                rgba(255, 255, 255, 0.03) 100%
+            );
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid rgba(255, 255, 255, 0.5);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.8);
+            box-shadow: 
+                inset 0 1px 2px rgba(255, 255, 255, 0.4), 
+                inset 0 -1px 2px rgba(0, 0, 0, 0.5), 
+                0 15px 25px rgba(0, 0, 0, 0.6);
+            will-change: transform;
+        }
+
+        .glass-bar.left {
+            right: 50%;
+            transform-origin: center right;
+        }
+
+        .glass-bar.right {
+            left: 50%;
+            transform-origin: center left;
+        }
+
+        /* UI Elements */
+        .glass-dock {
+            background: rgba(20, 22, 25, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+        }
+
+        .play-btn {
+            position: relative;
+        }
+        
+        .play-btn::after {
+            content: '';
+            position: absolute; /* Essential for inner ring */
+            inset: -4px;
+            border-radius: 50%;
+            border: 1px solid var(--emerald);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s ease;
+        }
+
+        .play-btn.is-playing::after {
+            opacity: 1;
+            transform: scale(1.1);
+            animation: pulse-ring 2s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        .btn-icon {
+            fill: currentColor;
+            transition: color 0.3s;
+        }
+
+        .play-btn.is-playing .btn-icon {
+            color: var(--emerald);
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-200">
+
+    <!-- 3D Environment -->
+    <div class="stage" id="stage">
+        <div class="crest-container" id="crest">
+            <div class="emerald-glow-layer" id="glow"></div>
+            <div class="emerald-beam" id="beam"></div>
+            <!-- Glass bars generated via JS -->
+        </div>
+    </div>
+
+    <!-- Interface -->
+    <div class="fixed inset-0 z-50 pointer-events-none flex flex-col justify-between">
+        
+        <!-- Header -->
+        <header class="p-6 md:p-10 flex justify-between items-start" style="padding-top: max(1.5rem, env(safe-area-inset-top));">
+            <div>
+                <h1 class="text-[10px] md:text-xs font-semibold tracking-[0.3em] uppercase text-gray-300">Platinum Crest</h1>
+                <p class="text-[9px] md:text-[10px] tracking-widest text-gray-600 mt-2 uppercase">Horological Bend Mechanics</p>
+            </div>
+        </header>
+
+        <!-- Bottom Dock -->
+        <div class="glass-dock w-full p-6 md:pb-6 pointer-events-auto flex justify-between items-center rounded-t-3xl md:rounded-full md:w-auto md:mx-auto md:mb-8 md:px-8" style="padding-bottom: max(1.5rem, env(safe-area-inset-bottom));">
+            <div class="flex items-center gap-6">
+                
+                <!-- Audio Toggle -->
+                <button id="audio-toggle" class="play-btn w-14 h-14 rounded-full bg-gray-900/80 border border-gray-700 flex items-center justify-center text-gray-400 outline-none focus:outline-none cursor-pointer active:scale-95 transition-transform duration-200">
+                    <svg class="btn-icon w-5 h-5 ml-1" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </button>
+
+                <div class="flex flex-col">
+                    <span class="text-[11px] font-medium tracking-widest uppercase text-gray-300">Touch & Drag</span>
+                    <span class="text-[9px] tracking-widest text-gray-500 mt-1 uppercase">Flex the crest</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col text-right ml-auto pl-8">
+                <span class="text-[9px] md:text-[10px] tracking-[0.2em] text-emerald-400 uppercase font-mono" id="bend-metric">Bend: 0.00°</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Application Logic
+         * Horological physics engine for the glass crest.
+         */
+
+        const CREST = document.getElementById('crest');
+        const BEAM = document.getElementById('beam');
+        const GLOW = document.getElementById('glow');
+        const METRIC = document.getElementById('bend-metric');
+        const AUDIO_BTN = document.getElementById('audio-toggle');
+        const BTN_ICON = document.querySelector('.btn-icon');
+
+        // Physics State
+        const state = {
+            pointer: { x: 0, y: 0, isDown: false },
+            dragStart: { x: 0, y: 0 },
+            bend: { currentX: 0, destX: 0, currentY: 0, destY: 0 },
+            bars: [],
+            audioReady: false,
+            width: window.innerWidth,
+            height: window.innerHeight
+        };
+
+        const CONFIG = {
+            numRows: 26,
+            barGap: 18,
+            baseAngle: 25,
+            bendLimit: 45,
+            stiffness: 0.08,
+            bulgeRadius: 300
+        };
+
+        // Audio Engine
+        let audioCtx, masterGain, synthOsc, humOsc, filter;
+
+        function setupAudio() {
+            if (state.audioReady) return toggleAudio();
+            
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            
+            masterGain = audioCtx.createGain();
+            masterGain.connect(audioCtx.destination);
+            masterGain.gain.value = 0;
+
+            filter = audioCtx.createBiquadFilter();
+            filter.type = "lowpass";
+            filter.frequency.value = 200;
+            filter.Q.value = 4;
+            filter.connect(masterGain);
+
+            humOsc = audioCtx.createOscillator();
+            humOsc.type = 'sine';
+            humOsc.frequency.value = 43.65;
+            humOsc.connect(filter);
+            humOsc.start();
+
+            synthOsc = audioCtx.createOscillator();
+            synthOsc.type = 'triangle';
+            synthOsc.frequency.value = 174.61;
+            
+            const synthGain = audioCtx.createGain();
+            synthGain.gain.value = 0.3;
+            synthOsc.connect(synthGain);
+            synthGain.connect(filter);
+            synthOsc.start();
+
+            state.audioReady = true;
+            toggleAudio(true);
+        }
+
+        let isPlaying = false;
+        function toggleAudio(forcePlay = false) {
+            if (!state.audioReady) {
+                setupAudio();
+                return;
+            }
+
+            isPlaying = forcePlay || !isPlaying;
+            
+            if (isPlaying) {
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                masterGain.gain.linearRampToValueAtTime(1, audioCtx.currentTime + 0.5);
+                AUDIO_BTN.classList.add('is-playing');
+                BTN_ICON.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+            } else {
+                masterGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                AUDIO_BTN.classList.remove('is-playing');
+                BTN_ICON.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        AUDIO_BTN.addEventListener('click', () => toggleAudio());
+
+        function updateAudioDynamics(intensity) {
+            if (!state.audioReady || !isPlaying) return;
+            // Direct parameter mapping matches the physics engine LERP naturally
+            filter.frequency.value = 200 + (intensity * 1200);
+            synthOsc.detune.value = intensity * 100;
+        }
+
+        // Build the 3D Chevron Crest
+        function buildCrest() {
+            // Keep dynamic elements only
+            Array.from(CREST.children).forEach(child => {
+                if(child.id !== 'beam' && child.id !== 'glow') {
+                    child.remove();
+                }
+            });
+            state.bars = [];
+
+            const totalHeight = CONFIG.numRows * CONFIG.barGap;
+            const startY = -totalHeight / 2;
+
+            for (let i = 0; i < CONFIG.numRows; i++) {
+                const yPos = startY + (i * CONFIG.barGap);
+                
+                const left = document.createElement('div');
+                left.className = 'glass-bar left';
+                left.style.top = `${yPos}px`;
+                
+                const right = document.createElement('div');
+                right.className = 'glass-bar right';
+                right.style.top = `${yPos}px`;
+
+                CREST.appendChild(left);
+                CREST.appendChild(right);
+
+                state.bars.push({
+                    elLeft: left,
+                    elRight: right,
+                    y: yPos,
+                    baseZ: 0
+                });
+            }
+        }
+
+        // Native Pointer Events Tracking
+        function handlePointerDown(e) {
+            if (e.target.closest('button')) return;
+            
+            state.pointer.isDown = true;
+            state.dragStart.x = e.clientX;
+            state.dragStart.y = e.clientY;
+            document.body.style.cursor = 'grabbing';
+            
+            try {
+                if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
+            } catch(err) {}
+        }
+
+        function handlePointerMove(e) {
+            if (!state.pointer.isDown) return;
+            e.preventDefault();
+            
+            const clientX = e.clientX;
+            const clientY = e.clientY;
+
+            const deltaX = clientX - state.dragStart.x;
+            const deltaY = clientY - state.dragStart.y;
+
+            state.bend.destX = (deltaX / state.width) * CONFIG.bendLimit * 2.5;
+            state.bend.destY = (deltaY / state.height) * CONFIG.bendLimit * 2.5;
+            
+            state.pointer.x = clientX;
+            state.pointer.y = clientY;
+        }
+
+        function handlePointerUp(e) {
+            state.pointer.isDown = false;
+            state.bend.destX = 0;
+            state.bend.destY = 0;
+            document.body.style.cursor = 'default';
+        }
+
+        window.addEventListener('pointerdown', handlePointerDown, { passive: false });
+        window.addEventListener('pointermove', handlePointerMove, { passive: false });
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
+        
+        window.addEventListener('resize', () => {
+            state.width = window.innerWidth;
+            state.height = window.innerHeight;
+        });
+
+        // Continuous Physics Loop
+        function tick() {
+            state.bend.currentX += (state.bend.destX - state.bend.currentX) * CONFIG.stiffness;
+            state.bend.currentY += (state.bend.destY - state.bend.currentY) * CONFIG.stiffness;
+
+            // Responsive framing preservation
+            let scaleFit = 1;
+            if (state.width < 380) scaleFit = 0.65;
+            else if (state.width < 768) scaleFit = 0.75;
+
+            CREST.style.transform = `scale(${scaleFit}) rotateX(${6 - state.bend.currentY}deg) rotateY(${state.bend.currentX}deg)`;
+
+            const intensity = Math.min(1, (Math.abs(state.bend.currentX) + Math.abs(state.bend.currentY)) / CONFIG.bendLimit);
+            
+            if(METRIC) {
+                METRIC.innerText = `BEND: ${(Math.abs(state.bend.currentX) + Math.abs(state.bend.currentY)).toFixed(2)}°`;
+            }
+            
+            updateAudioDynamics(intensity);
+
+            const pointerSceneY = state.pointer.isDown ? (state.pointer.y - state.height / 2) : -9999;
+
+            state.bars.forEach(bar => {
+                const dist = Math.abs(bar.y - pointerSceneY);
+                let localZ = 0;
+                let localBend = 0;
+
+                if (state.pointer.isDown && dist < CONFIG.bulgeRadius) {
+                    const force = 1 - (dist / CONFIG.bulgeRadius);
+                    const smoothForce = force * force;
+                    localZ = smoothForce * 40;
+                    localBend = smoothForce * state.bend.currentX * 0.5;
+                }
+
+                bar.baseZ += (localZ - bar.baseZ) * (CONFIG.stiffness * 1.5);
+
+                const leftAngle = CONFIG.baseAngle + state.bend.currentX + localBend;
+                const rightAngle = -CONFIG.baseAngle + state.bend.currentX + localBend;
+
+                bar.elLeft.style.transform = `translateZ(${bar.baseZ}px) rotateZ(${leftAngle}deg)`;
+                bar.elRight.style.transform = `translateZ(${bar.baseZ}px) rotateZ(${rightAngle}deg)`;
+            });
+
+            // Hardware-accelerated glow engine avoids repaint thrashing
+            const beamScale = 1 + (intensity * 0.5);
+            const beamZ = 20 + (state.pointer.isDown ? 30 : 0);
+            
+            BEAM.style.transform = `translateX(-50%) translateZ(${beamZ}px) scaleX(${beamScale})`;
+            
+            GLOW.style.transform = `translateX(-50%) translateZ(${beamZ - 1}px) scaleX(${1 + intensity * 6})`;
+            GLOW.style.opacity = 0.5 + (intensity * 0.5);
+
+            requestAnimationFrame(tick);
+        }
+
+        // Boot
+        buildCrest();
+        tick();
+
+    </script>
+</body>
+</html>
